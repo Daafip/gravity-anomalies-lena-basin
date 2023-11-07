@@ -2,7 +2,7 @@
 _Conversion of stoke coefficients to mass anaomalies using GRACE data in the LENA basin_
 
 # Explanation of repo
-## Overview of code: 
+## Overview of code 
 - `Project_grace_filtered.ipynb` contains the main bulk of code and should be understandable 
 - `Data overview.ipynb` contains some helper functions to speed up data collection etc.
 - Other notebooks can be found in `\old code` these are poorly commented and not worked out in detail 
