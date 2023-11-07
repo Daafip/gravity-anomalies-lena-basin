@@ -69,13 +69,15 @@ def run_initialisation():
 
     # add trend for Glacial isostatic Adjustment (GIA)
     fname_gia = f'Data\\GIA\\GIA_stoke_coeff_trend.gz'
+    # One of these sets is that appropriate for the analysis of the time-dependent gravitational field
+    # data provided by the GRACE satellites, denoted as “GRACE"
     df_1 = pd.read_csv(fname_gia, compression='gzip', skiprows=1, nrows=6, names=["l", "m", "Clm", "Slm"],
                        delimiter="\s+")
-    df_2 = pd.read_csv(fname_gia, compression='gzip', skiprows=9, nrows=6, names=["l", "m", "Clm", "Slm"],
-                       delimiter="\s+")
+    # df_2 = pd.read_csv(fname_gia, compression='gzip', skiprows=9, nrows=6, names=["l", "m", "Clm", "Slm"],
+    #                    delimiter="\s+")
     df_3 = pd.read_csv(fname_gia, compression='gzip', skiprows=17, names=["l", "m", "Clm", "Slm"], delimiter="\s+")
 
-    df_combined = pd.concat([df_2, df_3])
+    df_combined = pd.concat([df_1, df_3], axis=0)
     df_combined["l"] = df_combined["l"].astype(int)
     df_combined["m"] = df_combined["m"].astype(int)
 
@@ -112,13 +114,27 @@ def run_initialisation():
         else:
             C_i[3, 0] = C_30
 
-        # add glacia isostatic adjustment
-        C_i += GIA_C
-        S_i += GIA_S
-
         C.append(C_i), S.append(S_i), times.append(time_i), grace_names.append(
             f'{time_i.year}-{time_i.month}-{time_i.day}'), plot_times.append(mid_date_ts)
     #############################################################
+    df_time_series = pd.DataFrame(times, index=times)
+
+    for index, date in enumerate(df_time_series.index):
+        if index > 0:
+            dt = date - df_time_series.index[index - 1]
+            df_time_series.loc[date, "months_delta"] = dt.days // 28
+        else:
+            df_time_series.loc[date, "months_delta"] = 0
+    df_time_series['t_months'] = df_time_series.months_delta.cumsum().apply(lambda x: int(x))
+
+    ### subtract trend signal
+    for i, c in enumerate(C):
+        t = df_time_series.loc[times[i], 't_months'] + 10
+        if type(t) == pd.core.series.Series:
+            t = t.iloc[0]
+        C[i] -= GIA_C * t
+        S[i] -= GIA_S * t
+
     # calculate means of coefficients
     C = np.array(C)
     S = np.array(S)
@@ -154,6 +170,7 @@ def run_initialisation():
     theta = np.pi - np.pi / 180 * np.arange(180 - 40, 180 - 10, 1)  # 80 - 50 deg lat
 
     return _lambda, theta, dh_c1_store, dh_s1_store, plot_times
+
 
 def plm(theta, degree):
     p_lm = np.zeros((degree + 1, degree + 1))
@@ -268,10 +285,10 @@ if __name__ == "__main__":
     #### last run  240. second - ~4 min, n=80
     print("start")
     # first way, using multiprocessing
-    _lambda, theta, dh_c1_store, dh_s1_store, times = run_initialisation()
+    _lambda, theta, dh_c1_store, dh_s1_store, times  = run_initialisation()
     debug = False
     if debug:
-        n = 1
+        n = 20
         args = [[_lambda, theta, dh_c1_store[i], dh_s1_store[i]]
                 for i in range(len(dh_s1_store[:n]))]
         times = times[:(n)]  # debug

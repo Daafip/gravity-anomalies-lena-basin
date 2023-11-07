@@ -113,12 +113,27 @@ def run_initialisation_raw():
         else:
             C_i[3, 0] = C_30
 
-        # add glacia isostatic adjustment
-        C_i += GIA_C
-        S_i += GIA_S
-
         C.append(C_i), S.append(S_i)
     #############################################################
+    df_time_series = pd.DataFrame(times, index=times)
+
+    for index, date in enumerate(df_time_series.index):
+        if index > 0:
+            dt = date - df_time_series.index[index - 1]
+            df_time_series.loc[date, "months_delta"] = dt.days // 28
+        else:
+            df_time_series.loc[date, "months_delta"] = 0
+    df_time_series['t_months'] = df_time_series.months_delta.cumsum().apply(lambda x: int(x))
+
+    ### subtract trend signal
+    for i, c in enumerate(C):
+        t = df_time_series.loc[times[i], 't_months'] + 10
+        if type(t) == pd.core.series.Series:
+            t = t.iloc[0]
+        C[i] -= GIA_C * t
+        S[i] -= GIA_S * t
+
+
     # calculate means of coefficients
     C = np.array(C)
     S = np.array(S)
